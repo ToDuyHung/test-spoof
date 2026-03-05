@@ -17,6 +17,7 @@ import numbers
 import types
 import collections
 import warnings
+import collections.abc
 
 
 def _is_pil_image(img):
@@ -64,28 +65,17 @@ def to_tensor(pic):
         return torch.from_numpy(nppic)
 
     # handle PIL Image
-    if pic.mode == 'I':
-        img = torch.from_numpy(np.array(pic, np.int32, copy=False))
-    elif pic.mode == 'I;16':
-        img = torch.from_numpy(np.array(pic, np.int16, copy=False))
-    else:
-        img = torch.ByteTensor(torch.ByteStorage.from_buffer(pic.tobytes()))
-    # PIL image mode: 1, L, P, I, F, RGB, YCbCr, RGBA, CMYK
-    if pic.mode == 'YCbCr':
-        nchannel = 3
-    elif pic.mode == 'I;16':
-        nchannel = 1
-    else:
-        nchannel = len(pic.mode)
-    img = img.view(pic.size[1], pic.size[0], nchannel)
+    img = torch.from_numpy(np.array(pic, copy=True))
+    if pic.mode == '1':
+        img = img.unsqueeze(-1)
+    
     # put it from HWC to CHW format
-    # yikes, this transpose takes 80% of the loading time/CPU
-    img = img.transpose(0, 1).transpose(0, 2).contiguous()
-    if isinstance(img, torch.ByteTensor):
-        # return img.float().div(255)  #modified by zkx
-        return img.float()
-    else:
-        return img
+    if img.ndim == 3:
+        img = img.permute(2, 0, 1).contiguous()
+    elif img.ndim == 2:
+        img = img.unsqueeze(0)
+        
+    return img.float()
 
 
 def to_pil_image(pic, mode=None):
@@ -107,7 +97,7 @@ def to_pil_image(pic, mode=None):
 
     npimg = pic
     if isinstance(pic, torch.FloatTensor):
-        pic = pic.mul(255).byte()
+        pic = pic.clamp(0, 1).mul(255).byte()
     if torch.is_tensor(pic):
         npimg = np.transpose(pic.numpy(), (1, 2, 0))
 
@@ -190,7 +180,7 @@ def resize(img, size, interpolation=Image.BILINEAR):
     """
     if not _is_pil_image(img):
         raise TypeError('img should be PIL Image. Got {}'.format(type(img)))
-    if not (isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)):
+    if not (isinstance(size, int) or (isinstance(size, collections.abc.Iterable) and len(size) == 2)):
         raise TypeError('Got inappropriate size arg: {}'.format(size))
 
     if isinstance(size, int):
@@ -239,7 +229,7 @@ def pad(img, padding, fill=0):
     if not isinstance(fill, (numbers.Number, str, tuple)):
         raise TypeError('Got inappropriate fill arg')
 
-    if isinstance(padding, collections.Sequence) and len(padding) not in [2, 4]:
+    if isinstance(padding, collections.abc.Sequence) and len(padding) not in [2, 4]:
         raise ValueError("Padding must be an int or a 2, or 4 element tuple, not a " +
                          "{} element tuple".format(len(padding)))
 
@@ -492,11 +482,9 @@ def adjust_hue(img, hue_factor):
 
     h, s, v = img.convert('HSV').split()
 
-    np_h = np.array(h, dtype=np.uint8)
-    # uint8 addition take cares of rotation across boundaries
-    with np.errstate(over='ignore'):
-        np_h += np.uint8(hue_factor * 255)
-    h = Image.fromarray(np_h, 'L')
+    np_h = np.array(h, dtype=np.int16)
+    np_h = (np_h + int(hue_factor * 255)) % 256
+    h = Image.fromarray(np_h.astype(np.uint8), 'L')
 
     img = Image.merge('HSV', (h, s, v)).convert(input_mode)
     return img

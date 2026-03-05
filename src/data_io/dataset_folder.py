@@ -40,10 +40,7 @@ class DatasetFolderFT(datasets.ImageFolder):
         ft_sample = torch.unsqueeze(ft_sample, 0)
 
         if self.transform is not None:
-            try:
-                sample = self.transform(sample)
-            except Exception as err:
-                print('Error Occured: %s' % err, path)
+            sample = self.transform(sample)
         if self.target_transform is not None:
             target = self.target_transform(target)
         return sample, ft_sample, target

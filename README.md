@@ -170,10 +170,44 @@ MTCNN (`facenet_pytorch`) is used for face detection. The 5 facial landmarks are
 
 ---
 
-## Output
+---
 
-Annotated images are saved to `./output/` (or `--output_dir`).  
-Intermediate face crops are saved to `./output/crops/`.
+## Fine-tuning & CoreML
 
-- **Green box** = Real
-- **Red box** = Spoof
+Tools for fine-tuning the MiniFASNet model on custom datasets and converting results to Apple's CoreML format.
+
+### 1. Prepare Data
+Crops faces from `real/` and `spoof/` folders with a 2.7 margin and resizes to 80x80.
+```bash
+cd finetune
+python prepare_data.py
+```
+
+### 2. Training (Fine-tuning)
+Fine-tunes the model for 20 epochs. Weights are saved to `finetune/checkpoint/finetuned.pth`.
+```bash
+cd finetune
+python train.py
+```
+
+### 3. Inference (PyTorch .pth)
+Run inference using the fine-tuned `.pth` model.
+```bash
+cd finetune/inference
+python predict_finetuned.py --data_root ../../spoof/spoof15.png
+```
+
+### 4. Convert to CoreML
+Converts the fine-tuned `.pth` model to Apple's `.mlpackage` format.
+```bash
+cd finetune
+python convert_to_coreml.py
+```
+
+### 5. Inference (CoreML .mlpackage)
+Run inference using the `.mlpackage` via `coremltools`.
+**Note:** `.predict()` normally requires macOS.
+```bash
+cd finetune/inference
+python predict_coreml.py --data_root ../../spoof/spoof15.png
+```
