@@ -47,7 +47,7 @@ def convert():
             shape=example_input.shape,
             scale=255.0, # Scale [0, 1] to [0, 255]
             bias=[0, 0, 0],
-            color_layout=ct.colorlayout.RGB
+            color_layout=ct.colorlayout.BGR
         )],
         outputs=[ct.TensorType(name="logits")],
         minimum_deployment_target=ct.target.iOS15

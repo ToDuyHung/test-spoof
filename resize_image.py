@@ -11,8 +11,8 @@ import argparse
 import cv2
 from pathlib import Path
 
-TARGET_H = 1920
-TARGET_W = 2560
+TARGET_H = 255
+TARGET_W = 300
 
 
 def main(image_path: str, output_path: str | None = None):
